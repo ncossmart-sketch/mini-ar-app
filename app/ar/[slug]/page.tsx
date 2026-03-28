@@ -13,10 +13,16 @@ type Project = {
   created_at: string;
 };
 
-export default function ARPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function ARPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [videoReady, setVideoReady] = useState(false);
+  const [soundOn, setSoundOn] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -55,28 +61,34 @@ export default function ARPage({ params }: { params: Promise<{ slug: string }> }
 
     async function loadMindAR() {
       try {
-        if ((window as any).AFRAME) return;
+        if (!(window as any).AFRAME) {
+          const aframeScript = document.createElement("script");
+          aframeScript.src = "https://aframe.io/releases/1.4.2/aframe.min.js";
+          aframeScript.async = true;
+          document.body.appendChild(aframeScript);
 
-        const aframeScript = document.createElement("script");
-        aframeScript.src = "https://aframe.io/releases/1.4.2/aframe.min.js";
-        aframeScript.async = true;
-        document.body.appendChild(aframeScript);
+          await new Promise((resolve, reject) => {
+            aframeScript.onload = () => resolve(true);
+            aframeScript.onerror = () => reject(new Error("A-Frame yuklanmadi"));
+          });
+        }
 
-        await new Promise((resolve, reject) => {
-          aframeScript.onload = () => resolve(true);
-          aframeScript.onerror = () => reject(new Error("A-Frame yuklanmadi"));
-        });
+        const mindArAlreadyLoaded = document.querySelector(
+          'script[src*="mindar-image-aframe"]'
+        );
 
-        const mindarScript = document.createElement("script");
-        mindarScript.src =
-          "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js";
-        mindarScript.async = true;
-        document.body.appendChild(mindarScript);
+        if (!mindArAlreadyLoaded) {
+          const mindarScript = document.createElement("script");
+          mindarScript.src =
+            "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js";
+          mindarScript.async = true;
+          document.body.appendChild(mindarScript);
 
-        await new Promise((resolve, reject) => {
-          mindarScript.onload = () => resolve(true);
-          mindarScript.onerror = () => reject(new Error("MindAR yuklanmadi"));
-        });
+          await new Promise((resolve, reject) => {
+            mindarScript.onload = () => resolve(true);
+            mindarScript.onerror = () => reject(new Error("MindAR yuklanmadi"));
+          });
+        }
 
         if (!mounted) return;
 
@@ -85,7 +97,7 @@ export default function ARPage({ params }: { params: Promise<{ slug: string }> }
 
         container.innerHTML = `
           <a-scene
-            mindar-image="imageTargetSrc: ${project!.target_mind_url}; autoStart: true; uiScanning: true; uiLoading: true;"
+            mindar-image="imageTargetSrc: ${project.target_mind_url}; autoStart: true; uiScanning: true; uiLoading: true;"
             color-space="sRGB"
             renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
             embedded
@@ -95,7 +107,7 @@ export default function ARPage({ params }: { params: Promise<{ slug: string }> }
             <a-assets>
               <video
                 id="ar-video"
-                src="${project!.video_url}"
+                src="${project.video_url}"
                 preload="auto"
                 loop
                 muted
@@ -122,13 +134,11 @@ export default function ARPage({ params }: { params: Promise<{ slug: string }> }
           const video = document.getElementById("ar-video") as HTMLVideoElement | null;
           if (!video) return;
 
-          document.body.addEventListener(
-            "click",
-            () => {
-              video.play().catch(() => {});
-            },
-            { once: false }
-          );
+          setVideoReady(true);
+
+          document.body.addEventListener("click", () => {
+            video.play().catch(() => {});
+          });
         }, 1000);
       } catch (err) {
         setError("MindAR yuklanmadi");
@@ -141,6 +151,29 @@ export default function ARPage({ params }: { params: Promise<{ slug: string }> }
       mounted = false;
     };
   }, [project]);
+
+  const playVideo = () => {
+    const video = document.getElementById("ar-video") as HTMLVideoElement | null;
+    if (!video) return;
+    video.play().catch(() => {});
+  };
+
+  const pauseVideo = () => {
+    const video = document.getElementById("ar-video") as HTMLVideoElement | null;
+    if (!video) return;
+    video.pause();
+  };
+
+  const toggleSound = () => {
+    const video = document.getElementById("ar-video") as HTMLVideoElement | null;
+    if (!video) return;
+
+    video.muted = !video.muted;
+    setSoundOn(!video.muted);
+
+    if (!video.paused) return;
+    video.play().catch(() => {});
+  };
 
   if (loading) {
     return (
@@ -159,46 +192,149 @@ export default function ARPage({ params }: { params: Promise<{ slug: string }> }
   }
 
   return (
-    <main style={{ width: "100%", minHeight: "100vh", fontFamily: "Arial, sans-serif" }}>
-      <div
+    <>
+      <style>{`
+        html, body {
+          margin: 0;
+          padding: 0;
+          overflow: hidden;
+          width: 100%;
+          height: 100%;
+          background: #000;
+          font-family: Arial, sans-serif;
+        }
+
+        body {
+          position: relative;
+        }
+
+        #ar-container {
+          position: fixed;
+          inset: 0;
+          width: 100vw;
+          height: 100vh;
+          overflow: hidden;
+          background: #000;
+        }
+
+        a-scene {
+          position: fixed !important;
+          inset: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+        }
+
+        video, canvas {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          width: 100vw !important;
+          height: 100vh !important;
+          object-fit: cover !important;
+        }
+      `}</style>
+
+      <main
         style={{
-          position: "fixed",
-          top: 16,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 1000,
-          background: "rgba(0,0,0,0.7)",
-          color: "#fff",
-          padding: "10px 14px",
-          borderRadius: "12px",
-          textAlign: "center",
-          maxWidth: "90vw",
+          width: "100%",
+          minHeight: "100vh",
+          fontFamily: "Arial, sans-serif",
         }}
       >
-        <div><b>{project.title}</b></div>
-        <div style={{ fontSize: "14px", marginTop: "4px" }}>
-          Kamerani target rasmga qaratib turing
+        <div
+          style={{
+            position: "fixed",
+            top: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1000,
+            background: "rgba(0,0,0,0.72)",
+            color: "#fff",
+            padding: "12px 16px",
+            borderRadius: "14px",
+            textAlign: "center",
+            maxWidth: "90vw",
+          }}
+        >
+          <div>
+            <b>{project.title}</b>
+          </div>
+          <div style={{ fontSize: "14px", marginTop: "4px" }}>
+            Kamerani target rasmga qaratib turing
+          </div>
         </div>
-      </div>
 
-      <div id="ar-container" style={{ width: "100%", height: "100vh" }} />
+        <div id="ar-container" />
 
-      <div
-        style={{
-          position: "fixed",
-          bottom: 16,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 1000,
-          background: "rgba(37,99,235,0.95)",
-          color: "white",
-          padding: "10px 14px",
-          borderRadius: "12px",
-          fontSize: "14px",
-        }}
-      >
-        Video yurmasa ekranga bir marta bosing
-      </div>
-    </main>
+        <div
+          style={{
+            position: "fixed",
+            bottom: 18,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 1000,
+            display: "flex",
+            gap: "10px",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            width: "90vw",
+            maxWidth: "700px",
+          }}
+        >
+          <button
+            onClick={playVideo}
+            disabled={!videoReady}
+            style={buttonStyle}
+          >
+            ▶ Play
+          </button>
+
+          <button
+            onClick={pauseVideo}
+            disabled={!videoReady}
+            style={buttonStyle}
+          >
+            ⏸ Pause
+          </button>
+
+          <button
+            onClick={toggleSound}
+            disabled={!videoReady}
+            style={buttonStyle}
+          >
+            {soundOn ? "🔇 Ovoz o‘chirish" : "🔊 Ovoz yoqish"}
+          </button>
+
+          <a
+            href={project.video_url}
+            download
+            style={linkButtonStyle}
+          >
+            ⬇ Yuklab olish
+          </a>
+        </div>
+      </main>
+    </>
   );
 }
+
+const buttonStyle: React.CSSProperties = {
+  border: "none",
+  background: "rgba(37,99,235,0.95)",
+  color: "white",
+  padding: "12px 16px",
+  borderRadius: "12px",
+  fontSize: "15px",
+  cursor: "pointer",
+};
+
+const linkButtonStyle: React.CSSProperties = {
+  background: "rgba(0,0,0,0.78)",
+  color: "white",
+  padding: "12px 16px",
+  borderRadius: "12px",
+  fontSize: "15px",
+  textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+};
