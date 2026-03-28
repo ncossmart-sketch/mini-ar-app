@@ -97,7 +97,7 @@ export default function ARPage({
 
         container.innerHTML = `
           <a-scene
-            mindar-image="imageTargetSrc: ${project.target_mind_url}; autoStart: true; uiScanning: true; uiLoading: true;"
+            mindar-image="imageTargetSrc: ${project!.target_mind_url}; autoStart: true; uiScanning: true; uiLoading: true;"
             color-space="sRGB"
             renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
             embedded
@@ -107,7 +107,7 @@ export default function ARPage({
             <a-assets>
               <video
                 id="ar-video"
-                src="${project.video_url}"
+                src="${project!.video_url}"
                 preload="auto"
                 loop
                 muted
