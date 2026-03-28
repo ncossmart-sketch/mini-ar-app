@@ -45,7 +45,7 @@ export default function ARPage({
 
         setProject(data);
         setLoading(false);
-      } catch (err) {
+      } catch {
         setError("Projectni yuklashda xatolik");
         setLoading(false);
       }
@@ -58,6 +58,7 @@ export default function ARPage({
     if (!project) return;
 
     let mounted = true;
+    let bodyClickHandler: (() => void) | null = null;
 
     async function loadMindAR() {
       try {
@@ -67,25 +68,25 @@ export default function ARPage({
           aframeScript.async = true;
           document.body.appendChild(aframeScript);
 
-          await new Promise((resolve, reject) => {
-            aframeScript.onload = () => resolve(true);
+          await new Promise<void>((resolve, reject) => {
+            aframeScript.onload = () => resolve();
             aframeScript.onerror = () => reject(new Error("A-Frame yuklanmadi"));
           });
         }
 
-        const mindArAlreadyLoaded = document.querySelector(
+        const existingMindScript = document.querySelector(
           'script[src*="mindar-image-aframe"]'
         );
 
-        if (!mindArAlreadyLoaded) {
+        if (!existingMindScript) {
           const mindarScript = document.createElement("script");
           mindarScript.src =
             "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js";
           mindarScript.async = true;
           document.body.appendChild(mindarScript);
 
-          await new Promise((resolve, reject) => {
-            mindarScript.onload = () => resolve(true);
+          await new Promise<void>((resolve, reject) => {
+            mindarScript.onload = () => resolve();
             mindarScript.onerror = () => reject(new Error("MindAR yuklanmadi"));
           });
         }
@@ -119,7 +120,7 @@ export default function ARPage({
 
             <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-            <a-entity mindar-image-target="targetIndex: 0">
+            <a-entity id="mind-target" mindar-image-target="targetIndex: 0">
               <a-video
                 src="#ar-video"
                 position="0 0 0"
@@ -132,15 +133,30 @@ export default function ARPage({
 
         setTimeout(() => {
           const video = document.getElementById("ar-video") as HTMLVideoElement | null;
-          if (!video) return;
+          const target = document.getElementById("mind-target");
+
+          if (!video || !target) return;
 
           setVideoReady(true);
 
-          document.body.addEventListener("click", () => {
+          target.addEventListener("targetFound", () => {
             video.play().catch(() => {});
           });
+
+          target.addEventListener("targetLost", () => {
+            video.pause();
+            video.currentTime = 0;
+            video.muted = true;
+            setSoundOn(false);
+          });
+
+          bodyClickHandler = () => {
+            video.play().catch(() => {});
+          };
+
+          document.body.addEventListener("click", bodyClickHandler);
         }, 1000);
-      } catch (err) {
+      } catch {
         setError("MindAR yuklanmadi");
       }
     }
@@ -149,6 +165,9 @@ export default function ARPage({
 
     return () => {
       mounted = false;
+      if (bodyClickHandler) {
+        document.body.removeEventListener("click", bodyClickHandler);
+      }
     };
   }, [project]);
 
@@ -171,8 +190,9 @@ export default function ARPage({
     video.muted = !video.muted;
     setSoundOn(!video.muted);
 
-    if (!video.paused) return;
-    video.play().catch(() => {});
+    if (video.paused) {
+      video.play().catch(() => {});
+    }
   };
 
   if (loading) {
@@ -257,7 +277,7 @@ export default function ARPage({
           }}
         >
           <div>
-            <b>{project.title}</b>
+            <b>{project!.title}</b>
           </div>
           <div style={{ fontSize: "14px", marginTop: "4px" }}>
             Kamerani target rasmga qaratib turing
@@ -281,35 +301,19 @@ export default function ARPage({
             maxWidth: "700px",
           }}
         >
-          <button
-            onClick={playVideo}
-            disabled={!videoReady}
-            style={buttonStyle}
-          >
+          <button onClick={playVideo} disabled={!videoReady} style={buttonStyle}>
             ▶ Play
           </button>
 
-          <button
-            onClick={pauseVideo}
-            disabled={!videoReady}
-            style={buttonStyle}
-          >
+          <button onClick={pauseVideo} disabled={!videoReady} style={buttonStyle}>
             ⏸ Pause
           </button>
 
-          <button
-            onClick={toggleSound}
-            disabled={!videoReady}
-            style={buttonStyle}
-          >
+          <button onClick={toggleSound} disabled={!videoReady} style={buttonStyle}>
             {soundOn ? "🔇 Ovoz o‘chirish" : "🔊 Ovoz yoqish"}
           </button>
 
-          <a
-            href={project.video_url}
-            download
-            style={linkButtonStyle}
-          >
+          <a href={project!.video_url} download style={linkButtonStyle}>
             ⬇ Yuklab olish
           </a>
         </div>
