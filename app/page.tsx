@@ -70,7 +70,7 @@ export default function Home() {
         .getPublicUrl(fileName);
 
       return data.publicUrl;
-    } catch (error) {
+    } catch {
       setMessage("Upload error");
       return null;
     } finally {
