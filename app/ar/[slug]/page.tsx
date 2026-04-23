@@ -122,10 +122,11 @@ export default function ARPage({
 
             <a-entity id="mind-target" mindar-image-target="targetIndex: 0">
               <a-video
+                id="ar-video-plane"
                 src="#ar-video"
                 position="0 0 0"
                 width="1"
-                height="1.5"
+                height="1"
               ></a-video>
             </a-entity>
           </a-scene>
@@ -134,8 +135,32 @@ export default function ARPage({
         setTimeout(() => {
           const video = document.getElementById("ar-video") as HTMLVideoElement | null;
           const target = document.getElementById("mind-target");
+          const arVideoPlane = document.getElementById("ar-video-plane");
 
-          if (!video || !target) return;
+          if (!video || !target || !arVideoPlane) return;
+
+          video.addEventListener("loadedmetadata", () => {
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+
+            if (!videoWidth || !videoHeight) return;
+
+            const ratio = videoWidth / videoHeight;
+
+            let planeWidth = 1;
+            let planeHeight = 1;
+
+            if (ratio >= 1) {
+              planeWidth = 1.6;
+              planeHeight = planeWidth / ratio;
+            } else {
+              planeHeight = 1.6;
+              planeWidth = planeHeight * ratio;
+            }
+
+            arVideoPlane.setAttribute("width", String(planeWidth));
+            arVideoPlane.setAttribute("height", String(planeHeight));
+          });
 
           setVideoReady(true);
 
