@@ -125,8 +125,8 @@ export default function ARPage({
                 id="ar-video-plane"
                 material="shader: flat; src: #ar-video; transparent: true"
                 position="0 0 0"
-                width="1.6"
-                height="0.9"
+                width="1"
+                height="1.5"
               ></a-plane>
             </a-entity>
           </a-scene>
@@ -139,40 +139,57 @@ export default function ARPage({
 
           if (!video || !target || !arVideoPlane) return;
 
-          const applyVideoAspect = () => {
+          const applyCover = () => {
             const vw = video.videoWidth;
             const vh = video.videoHeight;
 
             if (!vw || !vh) return;
 
-            const ratio = vw / vh;
+            const videoRatio = vw / vh;
 
-            let width = 1;
-            let height = 1;
+            // Bizning target maydonimiz vertikal deb olinmoqda.
+            // Bu yerda target rectangle 1 x 1.5 deb qaraladi.
+            const planeWidth = 1;
+            const planeHeight = 1.5;
+            const planeRatio = planeWidth / planeHeight;
 
-            if (ratio >= 1) {
-              width = 1.6;
-              height = width / ratio;
-            } else {
-              height = 1.6;
-              width = height * ratio;
+            let repeatX = 1;
+            let repeatY = 1;
+            let offsetX = 0;
+            let offsetY = 0;
+
+            // cover logic:
+            // video targetni to'ldiradi, kerak bo'lsa crop bo'ladi
+            if (videoRatio > planeRatio) {
+              // video kengroq -> yonlardan crop qilamiz
+              repeatX = planeRatio / videoRatio;
+              offsetX = (1 - repeatX) / 2;
+            } else if (videoRatio < planeRatio) {
+              // video balandroq -> tepasi/pastidan crop qilamiz
+              repeatY = videoRatio / planeRatio;
+              offsetY = (1 - repeatY) / 2;
             }
 
-            arVideoPlane.setAttribute("width", String(width));
-            arVideoPlane.setAttribute("height", String(height));
+            arVideoPlane.setAttribute("width", String(planeWidth));
+            arVideoPlane.setAttribute("height", String(planeHeight));
+
+            arVideoPlane.setAttribute(
+  "material",
+  `shader: flat; src: #ar-video; transparent: true; repeat: ${repeatX} ${repeatY}; offset: ${offsetX} ${offsetY}`
+);
           };
 
-          video.addEventListener("loadedmetadata", applyVideoAspect);
-          video.addEventListener("canplay", applyVideoAspect);
+          video.addEventListener("loadedmetadata", applyCover);
+          video.addEventListener("canplay", applyCover);
 
           if (video.readyState >= 1) {
-            applyVideoAspect();
+            applyCover();
           }
 
           setVideoReady(true);
 
           target.addEventListener("targetFound", () => {
-            applyVideoAspect();
+            applyCover();
             video.play().catch(() => {});
           });
 
