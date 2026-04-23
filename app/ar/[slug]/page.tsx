@@ -125,8 +125,8 @@ export default function ARPage({
                 id="ar-video-plane"
                 material="shader: flat; src: #ar-video; transparent: true"
                 position="0 0 0"
-                width="1"
-                height="1"
+                width="1.6"
+                height="0.9"
               ></a-plane>
             </a-entity>
           </a-scene>
@@ -139,7 +139,7 @@ export default function ARPage({
 
           if (!video || !target || !arVideoPlane) return;
 
-          video.addEventListener("loadedmetadata", () => {
+          const applyVideoAspect = () => {
             const vw = video.videoWidth;
             const vh = video.videoHeight;
 
@@ -150,7 +150,7 @@ export default function ARPage({
             let width = 1;
             let height = 1;
 
-            if (ratio > 1) {
+            if (ratio >= 1) {
               width = 1.6;
               height = width / ratio;
             } else {
@@ -160,11 +160,19 @@ export default function ARPage({
 
             arVideoPlane.setAttribute("width", String(width));
             arVideoPlane.setAttribute("height", String(height));
-          });
+          };
+
+          video.addEventListener("loadedmetadata", applyVideoAspect);
+          video.addEventListener("canplay", applyVideoAspect);
+
+          if (video.readyState >= 1) {
+            applyVideoAspect();
+          }
 
           setVideoReady(true);
 
           target.addEventListener("targetFound", () => {
+            applyVideoAspect();
             video.play().catch(() => {});
           });
 
@@ -269,13 +277,12 @@ export default function ARPage({
           height: 100vh !important;
         }
 
-        video, canvas {
+        canvas {
           position: fixed !important;
           top: 0 !important;
           left: 0 !important;
           width: 100vw !important;
           height: 100vh !important;
-          object-fit: cover !important;
         }
       `}</style>
 
