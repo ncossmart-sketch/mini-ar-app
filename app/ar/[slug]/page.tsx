@@ -121,13 +121,13 @@ export default function ARPage({
             <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
             <a-entity id="mind-target" mindar-image-target="targetIndex: 0">
-              <a-video
+              <a-plane
                 id="ar-video-plane"
-                src="#ar-video"
+                material="shader: flat; src: #ar-video; transparent: true"
                 position="0 0 0"
                 width="1"
                 height="1"
-              ></a-video>
+              ></a-plane>
             </a-entity>
           </a-scene>
         `;
@@ -140,26 +140,26 @@ export default function ARPage({
           if (!video || !target || !arVideoPlane) return;
 
           video.addEventListener("loadedmetadata", () => {
-            const videoWidth = video.videoWidth;
-            const videoHeight = video.videoHeight;
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
 
-            if (!videoWidth || !videoHeight) return;
+            if (!vw || !vh) return;
 
-            const ratio = videoWidth / videoHeight;
+            const ratio = vw / vh;
 
-            let planeWidth = 1;
-            let planeHeight = 1;
+            let width = 1;
+            let height = 1;
 
-            if (ratio >= 1) {
-              planeWidth = 1.6;
-              planeHeight = planeWidth / ratio;
+            if (ratio > 1) {
+              width = 1.6;
+              height = width / ratio;
             } else {
-              planeHeight = 1.6;
-              planeWidth = planeHeight * ratio;
+              height = 1.6;
+              width = height * ratio;
             }
 
-            arVideoPlane.setAttribute("width", String(planeWidth));
-            arVideoPlane.setAttribute("height", String(planeHeight));
+            arVideoPlane.setAttribute("width", String(width));
+            arVideoPlane.setAttribute("height", String(height));
           });
 
           setVideoReady(true);
